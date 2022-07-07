@@ -10,7 +10,6 @@
 # 安装步骤
 #1. 安装docker
 #1.1 如果没有安装docker，则安装docker。会附带安装一个docker-compose
-#
 #2. 安装k8s
 #2.1 初始化环境
 #2.2 添加安装源
@@ -19,7 +18,7 @@
 #2.5 安装网络插件
 
 #node 的要手要 在 是否安装k8s？默认为：no. Enter [yes/no]：no
-# 后面的全要手工  或者 找init的func注释掉就行了 
+# 后面的全要手工  或者 找init的func注释掉就行了
 
 set -e
 
@@ -76,7 +75,7 @@ EOF
   read -p "是否安装docker-compose？默认为 no. Enter [yes/no]：" is_compose
   if [[ "$is_compose" == 'yes' ]];then
     info "7.安装docker-compose"
-    sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/2.6.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     sudo chmod a+x /usr/local/bin/docker-compose
 
     # 8.验证是否安装成功
@@ -85,7 +84,7 @@ EOF
   fi
 }
 
-#here 
+#here
 function install_k8s() {
     info "初始化k8s部署环境..."
     init_env
@@ -97,7 +96,7 @@ function install_k8s() {
     install_kubelet_kubeadmin_kubectl
 
     info "安装kubernetes master..."
-    yum -y install net-tools
+    apt  -y install net-tools
     if [[ ! "$(ps aux | grep 'kubernetes' | grep -v 'grep')" ]];then
       kubeadmin_init
     else
@@ -134,12 +133,24 @@ EOF
   sysctl -w net.ipv4.ip_forward=1
 
   info "时间同步"
-  yum install ntpdate -y
+  apt  install ntpdate  -y
   ntpdate time.windows.com
 }
 
 # 添加aliyun安装源
+
+ #curl -s https://mirrors.huaweicloud.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
+
 function add_aliyun_repo() {
+  apt  install  gnupg -y
+ curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
+
+  cat > /etc/apt/sources.list.d/kubernetes.list <<- EOF
+deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main
+EOF
+}
+
+function add_aliyun_YUMrepo() {
   cat > /etc/yum.repos.d/kubernetes.repo <<- EOF
 [kubernetes]
 name=Kubernetes
@@ -151,29 +162,29 @@ gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors
 EOF
 }
 
-# 我应该 要改为  1-20版本 也行  不过 tke 好像是 1.18
+# 我应该 要改为  1-20版本 也行  不过 tke 有 1.18.4    1.20.6
 function install_kubelet_kubeadmin_kubectl() {
-  yum install kubelet-1.19.4 kubeadm-1.19.4 kubectl-1.19.4 -y
-  systemctl enable kubelet.service
+    apt install kubelet-1.20.6 kubeadm-1.20.6 kubectl-1.20.6 -y
+    systemctl enable kubelet.service
 
-  info "确认kubelet kubeadmin kubectl是否安装成功"
-  yum list installed | grep kubelet
-  yum list installed | grep kubeadm
-  yum list installed | grep kubectl
-  kubelet --version
+    info "确认kubelet kubeadmin kubectl是否安装成功"
+    apt list  --installed | grep kubelet
+    apt list  --installed | grep kubeadm
+    apt list  --installed | grep kubectl
+    kubelet --version
 }
 
 function kubeadmin_init() {
   sleep 1
   read -p "请输入master ip地址：" ip
-  kubeadm init --apiserver-advertise-address="${ip}" --image-repository registry.aliyuncs.com/google_containers --kubernetes-version v1.19.4 --service-cidr=10.96.0.0/12 --pod-network-cidr=10.244.0.0/16
+  kubeadm init --apiserver-advertise-address="${ip}" --image-repository registry.aliyuncs.com/google_containers --kubernetes-version v1.20.6 --service-cidr=10.96.0.0/12 --pod-network-cidr=10.244.0.0/16
   mkdir -p "$HOME"/.kube
   sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
   sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
 }
 
 function install_flannel() {
-  yum -y install wget
+  apt -y install wget
   wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
   kubectl apply -f kube-flannel.yml
 }
